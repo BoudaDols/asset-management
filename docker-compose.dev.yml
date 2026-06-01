@@ -1,0 +1,100 @@
+# Municipal Asset Management System - Development Docker Compose
+# Usage: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  # --- PostgreSQL 16 Database ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: mam_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-asset_management}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis (Celery broker + result backend) ---
+  redis:
+    image: redis:7-alpine
+    container_name: mam_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # --- FastAPI Backend (with hot reload) ---
+  api:
+    build:
+      context: ./backend
+      target: development
+    container_name: mam_api
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-asset_management}
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-52428800}
+      BATCH_SIZE: ${BATCH_SIZE:-100}
+      PAGE_SIZE_DEFAULT: ${PAGE_SIZE_DEFAULT:-25}
+      PAGE_SIZE_MAX: ${PAGE_SIZE_MAX:-500}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- Celery Worker (background tasks) ---
+  celery_worker:
+    build:
+      context: ./backend
+      target: development
+    container_name: mam_celery_worker
+    command: celery -A app.worker:celery_app worker --loglevel=info --concurrency=2
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-asset_management}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- React Frontend (Vite dev server) ---
+  frontend:
+    build:
+      context: ./frontend
+      target: development
+    container_name: mam_frontend
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
