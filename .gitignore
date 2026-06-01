@@ -83,3 +83,7 @@ temp/
 .kiro/specs/municipal-asset-management/.config.kiro
 frontend/package-lock.json
 .kiro/
+design.md
+requirements.md
+schema.md
+tasks.md
