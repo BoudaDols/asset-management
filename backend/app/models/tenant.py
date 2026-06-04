@@ -23,6 +23,9 @@ class TenantVille(Base):
     tenant_ville_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     tenant_code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     tenant_nom: Mapped[str] = mapped_column(String(255), nullable=False)
+    database_url: Mapped[str | None] = mapped_column(
+        String(500), nullable=True, comment="Tenant Aurora DB URL. NULL = not yet provisioned."
+    )
     is_active: Mapped[bool] = mapped_column(Boolean, server_default="true")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

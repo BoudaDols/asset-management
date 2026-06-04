@@ -4,7 +4,7 @@
 #   2. docker compose -f docker-compose.dev.yml up --build
 
 services:
-  # --- PostgreSQL 16 Database ---
+  # --- PostgreSQL 16 Database (Central DB: catalog, tenants, users) ---
   postgres:
     image: postgres:16-alpine
     container_name: mam_postgres
@@ -22,20 +22,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # --- Redis (Celery broker + result backend) ---
-  redis:
-    image: redis:7-alpine
-    container_name: mam_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   # --- FastAPI Backend (with hot reload) ---
   api:
     build:
@@ -43,8 +29,11 @@ services:
       target: development
     container_name: mam_api
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: ${REDIS_URL}
+      CENTRAL_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      AWS_REGION: ${AWS_REGION:-ca-central-1}
+      LAMBDA_IMPORT_FUNCTION: ${LAMBDA_IMPORT_FUNCTION:-sgam-import-processor}
+      LAMBDA_EXPORT_FUNCTION: ${LAMBDA_EXPORT_FUNCTION:-sgam-export-processor}
+      USE_LAMBDA: ${USE_LAMBDA:-false}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       MAX_UPLOAD_SIZE: ${MAX_UPLOAD_SIZE:-52428800}
       BATCH_SIZE: ${BATCH_SIZE:-100}
@@ -56,27 +45,6 @@ services:
       - ./backend:/app
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # --- Celery Worker (background tasks) ---
-  celery_worker:
-    build:
-      context: ./backend
-      target: development
-    container_name: mam_celery_worker
-    command: celery -A app.worker:celery_app worker --loglevel=info --concurrency=2
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      REDIS_URL: ${REDIS_URL}
-    volumes:
-      - ./backend:/app
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -99,4 +67,3 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:

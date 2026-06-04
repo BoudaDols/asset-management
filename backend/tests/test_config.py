@@ -9,13 +9,27 @@ from app.core.config import Settings, get_settings
 class TestSettings:
     """Test the Settings class and defaults."""
 
-    def test_default_database_url(self):
+    def test_default_central_database_url(self):
         s = Settings()
-        assert s.DATABASE_URL == "postgresql+asyncpg://postgres:postgres@localhost:5432/asset_management"
+        assert s.CENTRAL_DATABASE_URL == (
+            "postgresql+asyncpg://postgres:postgres@localhost:5432/asset_management"
+        )
 
-    def test_default_redis_url(self):
+    def test_default_aws_region(self):
         s = Settings()
-        assert s.REDIS_URL == "redis://localhost:6379/0"
+        assert s.AWS_REGION == "ca-central-1"
+
+    def test_default_lambda_import_function(self):
+        s = Settings()
+        assert s.LAMBDA_IMPORT_FUNCTION == "sgam-import-processor"
+
+    def test_default_lambda_export_function(self):
+        s = Settings()
+        assert s.LAMBDA_EXPORT_FUNCTION == "sgam-export-processor"
+
+    def test_default_use_lambda(self):
+        s = Settings()
+        assert s.USE_LAMBDA is False
 
     def test_default_cors_origins(self):
         s = Settings()
@@ -38,10 +52,10 @@ class TestSettings:
         s = Settings()
         assert s.PAGE_SIZE_MAX == 500
 
-    def test_env_override(self):
-        with patch.dict(os.environ, {"DATABASE_URL": "postgresql+asyncpg://u:p@host/db"}):
+    def test_env_override_central_database_url(self):
+        with patch.dict(os.environ, {"CENTRAL_DATABASE_URL": "postgresql+asyncpg://u:p@host/db"}):
             s = Settings()
-            assert s.DATABASE_URL == "postgresql+asyncpg://u:p@host/db"
+            assert s.CENTRAL_DATABASE_URL == "postgresql+asyncpg://u:p@host/db"
 
     def test_batch_size_override(self):
         with patch.dict(os.environ, {"BATCH_SIZE": "200"}):
@@ -52,6 +66,11 @@ class TestSettings:
         with patch.dict(os.environ, {"CORS_ORIGINS": '["https://example.com"]'}):
             s = Settings()
             assert s.CORS_ORIGINS == ["https://example.com"]
+
+    def test_use_lambda_override(self):
+        with patch.dict(os.environ, {"USE_LAMBDA": "true"}):
+            s = Settings()
+            assert s.USE_LAMBDA is True
 
 
 class TestGetSettings:

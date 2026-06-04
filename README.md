@@ -8,18 +8,27 @@ Plateforme de gestion des actifs d'infrastructure pour les municipalités. Perme
 - **Gestion des instances** — CRUD d'actifs physiques avec attributs flexibles (JSONB)
 - **Importation Excel** — Import en masse via fichiers .xlsx avec validation et rapport d'erreurs
 - **Rapports** — Inventaire filtrable, regroupement par hiérarchie, export Excel/PDF
-- **Multi-tenant** — Isolation des données par municipalité
+- **Multi-tenant** — Isolation des données par municipalité (database-per-tenant avec Aurora)
 
 ## Stack technique
 
 | Couche | Technologie |
 |--------|-------------|
 | Backend | Python 3.11 + FastAPI |
-| Base de données | PostgreSQL 16 |
+| Base de données | PostgreSQL 16 (Aurora) — database-per-tenant |
 | ORM | SQLAlchemy (async) + Alembic |
-| Tâches asynchrones | Celery + Redis |
+| Tâches asynchrones | AWS Lambda |
 | Frontend | React + TypeScript + Vite + Tailwind CSS |
-| Infrastructure | Docker Compose |
+| Infrastructure | Docker Compose (dev) / AWS (prod) |
+
+## Architecture multi-tenant
+
+Chaque municipalité (tenant) dispose de sa propre instance Aurora PostgreSQL. Une base de données centrale contient les données partagées :
+- Catalogue hiérarchique (taxonomie normalisée)
+- Registre des tenants (avec leur `database_url`)
+- Utilisateurs et authentification
+
+Les données d'actifs (instances, imports) sont isolées dans la base propre à chaque tenant.
 
 ## Structure du projet
 
@@ -62,7 +71,7 @@ Plateforme de gestion des actifs d'infrastructure pour les municipalités. Perme
 # Copier les variables d'environnement
 cp .env.example .env
 
-# Démarrer tous les services
+# Démarrer tous les services (postgres, api, frontend)
 docker compose -f docker-compose.dev.yml up --build
 ```
 
@@ -85,6 +94,9 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload --port 8000
 ```
 
+> **Note** : En développement local, `USE_LAMBDA=false` (défaut) fait que les imports Excel
+> s'exécutent de manière synchrone au lieu d'invoquer AWS Lambda.
+
 #### Frontend
 
 ```bash
@@ -96,7 +108,7 @@ npm run dev
 #### Base de données seule (Docker)
 
 ```bash
-docker compose -f docker-compose.dev.yml up postgres redis -d
+docker compose -f docker-compose.dev.yml up postgres -d
 ```
 
 ## Migrations
@@ -137,8 +149,11 @@ docker compose -f docker-compose.dev.yml down -v
 
 | Variable | Description | Défaut |
 |----------|-------------|--------|
-| `DATABASE_URL` | URL de connexion PostgreSQL | `postgresql+asyncpg://postgres:postgres@localhost:5432/asset_management` |
-| `REDIS_URL` | URL de connexion Redis | `redis://localhost:6379/0` |
+| `CENTRAL_DATABASE_URL` | URL de connexion PostgreSQL (base centrale) | `postgresql+asyncpg://postgres:postgres@localhost:5432/asset_management` |
+| `AWS_REGION` | Région AWS | `ca-central-1` |
+| `LAMBDA_IMPORT_FUNCTION` | Nom de la fonction Lambda d'import | `sgam-import-processor` |
+| `LAMBDA_EXPORT_FUNCTION` | Nom de la fonction Lambda d'export | `sgam-export-processor` |
+| `USE_LAMBDA` | Utiliser Lambda pour les tâches async | `false` (synchrone en dev) |
 | `CORS_ORIGINS` | Origines autorisées (JSON array) | `["http://localhost:5173"]` |
 | `MAX_UPLOAD_SIZE` | Taille max upload en octets | `52428800` (50 Mo) |
 | `BATCH_SIZE` | Lignes par lot d'insertion | `100` |
@@ -147,7 +162,7 @@ docker compose -f docker-compose.dev.yml down -v
 
 ## Feuille de route
 
-- **V1** (en cours) — Catalogue, instances, import Excel, rapports, multi-tenant
+- **V1** (en cours) — Catalogue, instances, import Excel, rapports, multi-tenant (database-per-tenant)
 - **V2** — Authentification JWT, RBAC, journal d'audit, gestion des utilisateurs
 - **V3** — Cycle de vie des actifs, maintenance, coûts, intégration GIS
 

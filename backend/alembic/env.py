@@ -1,6 +1,6 @@
 """Alembic environment configuration for async SQLAlchemy migrations.
 
-Loads DATABASE_URL from app.core.config and uses the Base metadata
+Loads CENTRAL_DATABASE_URL from app.core.config and uses the Base metadata
 from app.core.database for autogenerate support.
 """
 
@@ -19,9 +19,9 @@ from app.core.database import Base
 # Alembic Config object (provides access to alembic.ini values)
 config = context.config
 
-# Set the SQLAlchemy URL from application settings
+# Set the SQLAlchemy URL from application settings (central database)
 settings = get_settings()
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.CENTRAL_DATABASE_URL)
 
 # Interpret the config file for Python logging (if present)
 if config.config_file_name is not None:

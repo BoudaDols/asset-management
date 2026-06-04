@@ -201,6 +201,12 @@ def upgrade() -> None:
         sa.Column("tenant_ville_id", sa.Integer(), primary_key=True, autoincrement=True),
         sa.Column("tenant_code", sa.String(50), unique=True, nullable=False),
         sa.Column("tenant_nom", sa.String(255), nullable=False),
+        sa.Column(
+            "database_url",
+            sa.String(500),
+            nullable=True,
+            comment="Tenant Aurora DB URL. NULL = not yet provisioned.",
+        ),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         sa.Column(
             "created_at",

@@ -22,11 +22,18 @@ class Settings(BaseSettings):
         case_sensitive=False,
     )
 
-    # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/asset_management"
+    # Central Database (shared: catalog, tenants, users)
+    CENTRAL_DATABASE_URL: str = (
+        "postgresql+asyncpg://postgres:postgres@localhost:5432/asset_management"
+    )
 
-    # Redis (used by Celery broker and result backend)
-    REDIS_URL: str = "redis://localhost:6379/0"
+    # AWS
+    AWS_REGION: str = "ca-central-1"
+
+    # AWS Lambda (background tasks: import, export)
+    LAMBDA_IMPORT_FUNCTION: str = "sgam-import-processor"
+    LAMBDA_EXPORT_FUNCTION: str = "sgam-export-processor"
+    USE_LAMBDA: bool = False  # False for local dev — runs sync
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:5173", "http://localhost:3000"]
